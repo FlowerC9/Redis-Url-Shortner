@@ -1,31 +1,35 @@
-import cron from 'node-cron'
-import { urlModel } from '../models/shortUrl';  // Import your URL model
-import redisClient from '../config/redisConfig';  // Import your Redis client
+import cron from 'node-cron';
+import { urlModel } from '../models/shortUrl';
+import redisClient from '../config/redisConfig';
 
-// This job will run every hour to sync click counts from Redis to MongoDB
-cron.schedule('0 * * * *', async () => {
-    console.log('Starting click count sync with database...');
-
+// Sync Redis click counts with MongoDB every minute
+const syncClicks = cron.schedule('0 * * * *', async () => {
+    console.log('Syncing clicks to MongoDB...');
+    
     try {
-        // Fetch all URLs from the database
-        const allUrls = await urlModel.find();
+        // Get all keys that track clicks (e.g., clicks:{shortUrlId})
+        const keys = await redisClient.keys('clicks:*');
 
-        for (const url of allUrls) {
-            const clickCountKey = `clicks:${url.shortUrl}`; // Redis key for storing clicks
-            const cachedClicks = await redisClient.get(clickCountKey);
+        for (const key of keys) {
+            const shortUrlId = key.split(':')[1];  // Extract short URL ID from the key
+            const clicks = await redisClient.get(key);  // Get the click count from Redis
 
-            if (cachedClicks) {
-                // Update the clicks count in MongoDB
-                url.clicks += parseInt(cachedClicks);
-                await url.save();
+            // Update the click count in MongoDB if the key exists in Redis
+            if (clicks) {
+                await urlModel.findOneAndUpdate(
+                    { shortUrl: shortUrlId },
+                    { clicks: parseInt(clicks) }
+                );
 
-                // Reset the click count in Redis after syncing
-                await redisClient.del(clickCountKey);
+                // Optionally, delete the Redis key after syncing to MongoDB
+                await redisClient.del(key);
             }
         }
 
-        console.log('Click counts successfully synced with database.');
+        console.log('Sync complete.');
     } catch (error) {
-        console.error('Error syncing click counts with database:', error);
+        console.error('Error syncing clicks:', error);
     }
 });
+
+export default syncClicks;

@@ -37,8 +37,8 @@ export const getUrl = async(req:Request,res:Response)=>{
     try {
         const cachedUrl=await redisClient.get(id);
         if(cachedUrl){
-            const clickCountKey = `clicks:${id}`;
-            await redisClient.incr(clickCountKey);
+            console.log("getting data from redis");
+            redisClient.incr(`clicks:${id}`);
             return res.redirect(cachedUrl);
         }
         const shortUrl= await urlModel.findOne({shortUrl:id});
@@ -46,23 +46,34 @@ export const getUrl = async(req:Request,res:Response)=>{
             res.status(404).send({message:"Full Url Not found"})
         }
         else{
-            const clickCountKey = `clicks:${id}`;
-            await redisClient.incr(clickCountKey);
             await redisClient.setEx(id, 3600, shortUrl.fullUrl);
+            await redisClient.setEx(`clicks:${id}`, 3600, shortUrl.clicks.toString());
+            shortUrl.clicks++;
+            shortUrl.save();
             res.redirect(`${shortUrl.fullUrl}`)
         }
     } catch (error) {
         res.status(500).send({message:"Something went wrong"});
     }
 }
-export const deleteUrl = async(req:Request,res:Response)=>{
+export const deleteUrl = async (req: Request, res: Response) => {
     try {
-        const shortUrl= await urlModel.findByIdAndDelete({_id:req.params.id});
-        if(shortUrl){
+        // Find and delete the URL from MongoDB using the ID
+        const shortUrl = await urlModel.findByIdAndDelete(req.params.id);
+        
+        if (shortUrl) {
+            // Delete the cached full URL from Redis
             await redisClient.del(shortUrl.shortUrl);
-            res.status(200).send({message:"Requested Url Successfully deleted"})
+
+            // Delete the cached click count from Redis (e.g., clicks:{id})
+            await redisClient.del(`clicks:${shortUrl.shortUrl}`);
+
+            res.status(200).send({ message: "Requested URL successfully deleted" });
+        } else {
+            // Handle case when URL is not found in MongoDB
+            res.status(404).send({ message: "URL not found" });
         }
     } catch (error) {
-        res.status(500).send({message:"Something went wrong"});
+        res.status(500).send({ message: "Something went wrong" });
     }
-}
+};
