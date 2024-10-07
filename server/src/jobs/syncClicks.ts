@@ -3,7 +3,7 @@ import { urlModel } from '../models/shortUrl';
 import redisClient from '../config/redisConfig';
 
 // Sync Redis click counts with MongoDB every minute
-const syncClicks = cron.schedule('0 * * * *', async () => {
+const syncClicks = cron.schedule('* * * * *', async () => {
     console.log('Syncing clicks to MongoDB...');
     
     try {
