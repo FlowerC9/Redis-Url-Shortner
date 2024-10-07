@@ -5,6 +5,7 @@ import connectDb from './config/dbconfig';
 import shortUrl from './routes/shortUrl';
 import redisClient from './config/redisConfig';
 import syncClicks from './jobs/syncClicks';  // Import the sync job
+import { VALID_ORIGIN } from './helpers/constant';
 
 dotenv.config();
 connectDb();
@@ -14,7 +15,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-    origin: "http://localhost:3000",
+    origin: VALID_ORIGIN,
     credentials: true,
 }));
 
