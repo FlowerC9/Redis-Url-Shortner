@@ -8,7 +8,7 @@ import syncClicks from './jobs/syncClicks';  // Import the sync job
 
 dotenv.config();
 connectDb();
-const port = process.env.port || 5001;
+const port = process.env.PORT || 5001;
 
 const app = express();
 app.use(express.json());
